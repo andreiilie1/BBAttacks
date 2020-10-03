@@ -1,5 +1,8 @@
 import numpy as np
 import random
+
+import sys
+sys.path.append("../utils/")
 import utils
 
 # A wrapper class that performs the SimBA attack - pixel version
