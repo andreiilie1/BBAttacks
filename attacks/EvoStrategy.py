@@ -43,6 +43,8 @@ class EvoStrategy(ABC):
 # Main parameters to change are self.generation_size (how many individuals per each generation),
 # and, when calling the actual attack, the maximum number of rounds, passed as parameter 'steps' to
 # the method AdversarialPerturbationEvoStraegy.run_adversarial_attack(steps)
+
+# TODO: using (28x28) images below, customise it for any image sizes to be able to test on ImageNet
 class AdversarialPerturbationEvoStraegy(EvoStrategy):
     # We do not abstract model as an objective_function to be able
     # to use batch prediction easier.
