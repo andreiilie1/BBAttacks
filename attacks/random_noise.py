@@ -8,12 +8,17 @@ from IPython.display import clear_output
 def noisy(image, noise_type="gauss", args={}):
     row, col, ch = image.shape
     
+    if 'normalize' in args:
+        normalize = args['normalize']
+    else:
+        normalize = 255
+    
     if noise_type == "gauss":
         mean = 0
         var = 126
         sigma = var ** 0.5
         
-        gauss = np.random.normal(mean,sigma,(row,col,ch))
+        gauss = np.random.normal(mean,sigma,(row,col,ch)) / normalize
         gauss = gauss.reshape(row,col,ch)
         
         noisy = image + gauss
@@ -31,7 +36,7 @@ def noisy(image, noise_type="gauss", args={}):
             cell_x = np.random.randint(row)
             cell_y = np.random.randint(col)
             for channel in range(ch):
-                noisy[cell_x][cell_y][channel] = np.random.randint(255)
+                noisy[cell_x][cell_y][channel] = np.random.randint(255) / normalize
 
     return noisy
 
@@ -66,6 +71,7 @@ def check_noise_robustness_multiple_rounds(model, sample_x, sample_y, steps = 5,
     # TODO: add early stopping
     K = len(sample_x)
     number_queries = {}
+    print("K:",K)
     
     # Robustness_progress[i] measures the percentage of images from sample_x which
     robustness_progress = []
@@ -87,6 +93,9 @@ def check_noise_robustness_multiple_rounds(model, sample_x, sample_y, steps = 5,
             saved_noisy_imgs[i] = noisy_imgs[i]
     
     for i in range(steps - 1):
+#         print("\n\n\n")
+#         print("Round", i)
+#         print("agreements:", agreements)
         if verbose:
             clear_output(wait=True)
             print("Step", i + 1, "/", steps)
@@ -96,17 +105,20 @@ def check_noise_robustness_multiple_rounds(model, sample_x, sample_y, steps = 5,
             plt.show()
             
         accuracy_local, agreements_local, noisy_imgs_local = check_noise_robustness(model, sample_x, sample_y, noise_type, args)
+#         print("agreements_local:", agreements_local)
         
         # Agreements[j] is true if the image sample_x[j] was correctly classified by 
         # all the attempts of adding noise up to the current (i) step
         agreements = np.logical_and(agreements, agreements_local)
         robustness_progress.append(np.sum(agreements)/len(agreements))
-        
+#         print("agreements:", agreements)
+
         # If we manage to add noise to an image and get it misclassified for the first
         # time, save the noisy image in saved_noisy_imgs
         for j in range(K):
             if(agreements[j] == False and saved_noisy_imgs[j] == []):
-                saved_noisy_imgs[j] = noisy_imgs[j]
+                print("Updated sample", j)
+                saved_noisy_imgs[j] = noisy_imgs_local[j]
                 number_queries[j] = i
     if verbose:
         clear_output(wait=True)
