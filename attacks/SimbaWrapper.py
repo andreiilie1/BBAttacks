@@ -5,6 +5,11 @@ import sys
 sys.path.append("../utils/")
 import utils
 
+import matplotlib.pyplot as plt
+import json
+
+from tqdm import tqdm
+
 # A wrapper class that performs the SimBA attack - pixel version
 # It will try to perturb the 'model' classification of images 'X' with 
 # labels 'y', by modifying random pixels with +/- epsilon steps. 
@@ -15,7 +20,8 @@ import utils
 #     - the image has sufferred modications of max_l0_distance pixels
 # It stops succesfully for an image as soon as it is not longer classified to have label y.
 class SimbaWrapper():
-    def __init__(self, model, X, y, epsilon, max_queries, max_iterations=1000, max_l0_distance=28):
+    def __init__(self, model, X, y, epsilon, max_queries, max_iterations=100, max_l0_distance=28, checkpoints=True, 
+                 folder="saved_experiments_simba", verbose=False, reshape_flag=False, reshape=(28, 28), max_value=1):
         self.model = model
         self.X = X
         self.y = y
@@ -23,6 +29,12 @@ class SimbaWrapper():
         self.max_iterations = max_iterations
         self.max_queries = max_queries
         self.max_l0_distance = max_l0_distance
+        self.folder = folder
+        self.X_modified = []
+        self.verbose = verbose
+        self.reshape_flag = reshape_flag
+        self.reshape = reshape
+        self.max_value = max_value
         
         # At the end of a SimbaWrapper.run_simba run, self.queries[i] will contain the number of queries
         # to the model for image X[i] until the attack stopped (with or without success); 
@@ -40,12 +52,24 @@ class SimbaWrapper():
             return True
         return False
 
-    def run_simba(self, verbose=True):
-        for index in range(len(self.X)):
+    def run_simba(self):
+        verbose = self.verbose
+        for index in tqdm(range(len(self.X))):
             if verbose:
+                print()
+                print()
                 print("Index:", index)
             queries_count = 0
             img = self.X[index].copy()
+            if verbose:
+                print("INITIAL IMAGE")
+            if self.reshape_flag:
+                new_shape = self.reshape
+            else:
+                new_shape = np.shape(img)
+            if verbose:
+                plt.imshow(np.reshape(img, new_shape))
+            plt.show()
             label = np.argmax(self.y[index])
 
             shape = np.shape(img)
@@ -65,15 +89,22 @@ class SimbaWrapper():
                         print("l0_distance exceeded")
                         print()
                     break
-                if(step % 25 == 0):
+                if(step % 100 == 0):
                     if verbose:
                         print(" Step:", step)
                         print(" Prob:", curr_prob)
                         print()
                 if SimbaWrapper.stop_condition_success(curr_probs_distribution, label):
                     if verbose:
-                        print("image perturbed")
-                        print()
+                        print("Perturbation successful")
+                        print("Classified as: ", np.argmax(curr_probs_distribution))
+                        print("Perturbed image:")
+                        if self.reshape_flag:
+                            new_shape = self.reshape
+                        else:
+                            new_shape = np.shape(img)
+                        plt.imshow(np.reshape(img, new_shape))
+                        plt.show()
                     perturbed = True
                     break
 
@@ -83,7 +114,7 @@ class SimbaWrapper():
                         print()
                     break
 
-                if len(selected) == np.shape(self.X[0])[0] * np.shape(self.X[0])[1]:
+                if len(selected) >= np.shape(self.X[0])[0] * np.shape(self.X[0])[1]:
                     if verbose:
                         print("all pixels consumed")
                         print()
@@ -98,8 +129,11 @@ class SimbaWrapper():
                 selected.add((i,j))
 
                 img_pos = img.copy()
-                img_pos[i][j][0] = img_pos[i][j][0] + self.epsilon
-                img_pos[i][j][0] = utils.cap(img_pos[i][j][0], 0, 255)
+                img_pos[i][j][0] = img_pos[i][j][0] + self.epsilon * self.max_value
+                img_pos[i][j][0] = utils.cap(img_pos[i][j][0], 0, self.max_value)
+
+#                 random_intensity = random.randint(0,255) / 255
+#                 img_pos[i][j][0] = random_intensity
 
                 res_pos_distribution = self.model.predict(np.array([img_pos]))[0]
                 queries_count += 1
@@ -112,8 +146,9 @@ class SimbaWrapper():
                     l0_distance += 1
                 else:
                     img_neg = img.copy()
-                    img_neg[i][j][0] = img_neg[i][j][0] - self.epsilon
-                    img_neg[i][j][0] = utils.cap(img_neg[i][j][0], 0, 255)
+                    img_neg[i][j][0] = img_neg[i][j][0] - self.epsilon * self.max_value
+                    img_neg[i][j][0] = utils.cap(img_neg[i][j][0], 0, self.max_value)
+#                     img_neg[i][j][0] = random_intensity
 
                     res_neg_distribution = self.model.predict(np.array([img_neg]))[0]
                     queries_count += 1
@@ -124,10 +159,21 @@ class SimbaWrapper():
                         curr_prob = res_neg
                         img = img_neg
                         l0_distance += 1
-
-            print(" Queries:", queries_count)
-            print("__________________")
+            if verbose:
+                print(" Queries:", queries_count)
+                print("__________________")
 
             self.queries.append(queries_count)
             self.perturbed.append(perturbed)
             self.l0_distances.append(l0_distance)
+            self.X_modified.append(img)
+            
+            if index % 20 == 0:
+                FILE_COUNT = index // 20
+                save_data = {
+                    "queries":self.queries,
+                    "perturbed":self.perturbed,
+                    "l0_distances":self.l0_distances
+                }
+                with open(self.folder + "/" + str(FILE_COUNT) + ".json", "w") as fp:
+                    json.dump(save_data, fp)
