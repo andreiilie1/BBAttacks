@@ -30,22 +30,32 @@ def top_k_accuracy(y_true, y_pred, k=1):
     return np.any(argsorted_y.T == y_true.argmax(axis=1), axis=0).mean()
 
 
-def generate_metrics(ega, unperturbed_images, sample_size):
-    l0_dists_succ = []
+def get_evoba_stats(adv_evo_strategy):
+    count_succ = 0
     queries_succ = []
-    samples_succ = []
-    samples_fail = []
-    for i in range(sample_size):
-        if ega[i].is_perturbed():
-            l0_dist = (ega[i].img != unperturbed_images[i]).sum()
-            l0_dists_succ.append(l0_dist)
-            queries_succ.append(ega[i].count_explorations)
-            samples_succ.append(i)
+    l0_dists_succ = []
+    indices_succ = []
+
+    count_fail = 0
+    indices_fails = []
+
+    for i in tqdm(range(len(adv_evo_strategy))):
+        img = adv_evo_strategy[i].img
+
+        if adv_evo_strategy[i].stop_criterion():
+            count_succ += 1
+            queries_succ.append(adv_evo_strategy[i].queries)
+            l0_dists_succ.append(np.sum(adv_evo_strategy[i].get_best_candidate() != img))
+            index_succ.append(i)
         else:
-            samples_fail.append(i)
+            count_fail +=1
+            index_fail.append(i)
+        
     return {
-        "l0_dists_succ": l0_dists_succ,
+        "count_succ": count_succ,
         "queries_succ": queries_succ,
-        "samples_succ": samples_succ,
-        "samples_fail": samples_fail
+        "l0_dists_succ": l0_dists_succ, 
+        "indices_succ": indices_succ,
+        "count_fail": count_fail,
+        "indices_fails": indices_fails
     }
