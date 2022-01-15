@@ -142,7 +142,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
                     if self.reshape_flag:
                         plt.imshow(np.reshape(self.get_best_candidate(), self.shape))
                     else:
-                        plt.imshow(self.img)
+                        plt.imshow(self.get_best_candidate())
                         
                     plt.show()
                 except Exception as e:
