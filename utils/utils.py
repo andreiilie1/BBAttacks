@@ -28,3 +28,24 @@ def top_k_accuracy(y_true, y_pred, k=1):
     '''
     argsorted_y = np.argsort(y_pred)[:,-k:]
     return np.any(argsorted_y.T == y_true.argmax(axis=1), axis=0).mean()
+
+
+def generate_metrics(ega, unperturbed_images, sample_size):
+    l0_dists_succ = []
+    queries_succ = []
+    samples_succ = []
+    samples_fail = []
+    for i in range(sample_size):
+        if ega[i].is_perturbed():
+            l0_dist = (ega[i].img != unperturbed_images[i]).sum()
+            l0_dists_succ.append(l0_dist)
+            queries_succ.append(ega[i].count_explorations)
+            samples_succ.append(i)
+        else:
+            samples_fail.append(i)
+    return {
+        "l0_dists_succ": l0_dists_succ,
+        "queries_succ": queries_succ,
+        "samples_succ": samples_succ,
+        "samples_fail": samples_fail
+    }
