@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 import numpy as np
+from tqdm.notebook import tqdm
 
 
 def cap(value, inf, sup):
@@ -46,7 +47,7 @@ def get_evoba_stats(adv_evo_strategy):
             count_succ += 1
             queries_succ.append(adv_evo_strategy[i].queries)
             l0_dists_succ.append(np.sum(adv_evo_strategy[i].get_best_candidate() != img))
-            index_succ.append(i)
+            indices_succ.append(i)
         else:
             count_fail +=1
             index_fail.append(i)
