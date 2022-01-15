@@ -12,16 +12,17 @@ from tensorflow.keras import backend as K
 from tensorflow.keras import regularizers
 
 class cifar100vgg:
-    def __init__(self,train=True):
+    def __init__(self, train=True, weights_path=''):
         self.num_classes = 100
         self.weight_decay = 0.0005
         self.x_shape = [32,32,3]
+        self.weights_path = weights_path
 
         self.model = self.build_model()
         if train:
             self.model = self.train(self.model)
         else:
-            self.model.load_weights('/Users/andrei/Desktop/Repos/cifar-vgg/cifar100vgg.h5')
+            self.model.load_weights(self.weights_path)
 
 
     def build_model(self):
