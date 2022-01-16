@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from tqdm.notebook import tqdm
+import json
 
 
 def cap(value, inf, sup):
@@ -40,7 +41,7 @@ def get_evoba_stats(adv_evo_strategy):
     count_fail = 0
     indices_fails = []
 
-    for i in tqdm(range(len(adv_evo_strategy))):
+    for i in range(len(adv_evo_strategy)):
         img = adv_evo_strategy[i].img
 
         if adv_evo_strategy[i].stop_criterion():
@@ -53,10 +54,80 @@ def get_evoba_stats(adv_evo_strategy):
             index_fail.append(i)
         
     return {
-        "count_succ": count_succ,
+        "count_succ": int(count_succ),
         "queries_succ": queries_succ,
         "l0_dists_succ": l0_dists_succ, 
         "indices_succ": indices_succ,
-        "count_fail": count_fail,
-        "indices_fails": indices_fails
+        "count_fail": int(count_fail),
+        "indices_fails": indices_fails,
+        "queries_succ_mean": np.mean(queries_succ),
+        "l0_dists_succ_mean": np.mean(l0_dists_succ)
     }
+
+
+def print_evoba_stats(evoba_stats):
+    SEP = "_" * 20
+    count_succ = evoba_stats["count_succ"]
+    count_fail = evoba_stats["count_fail"]
+    count_total = count_succ + count_fail
+    
+    queries_succ_mean = evoba_stats["queries_succ_mean"]
+    l0_dists_succ_mean = evoba_stats["l0_dists_succ_mean"]
+    
+    queries_succ = evoba_stats["queries_succ"]
+    l0_dists_succ = evoba_stats["l0_dists_succ"]
+    
+    print()
+    print("EvoBA STATS (L0 attack)")
+    print(SEP)
+    
+    print(f"Perturbed successfully {count_succ}/{count_total} images")
+    print(f"Average query count: {queries_succ_mean}")
+    print(f"Average l0 distance: {l0_dists_succ_mean}")
+
+    print()
+    print(f"Median query count: {np.median(queries_succ)}")
+    print(f"Median l0 dist: {np.median(l0_dists_succ)}")
+
+    print()
+    print(f"Max query count: {max(queries_succ)}")
+    print(f"Max l0 dist: {max(l0_dists_succ)}")
+    print(SEP)
+    print()
+    
+    
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+
+
+def save_evoba_artifacts(evoba_stats, run_output_folder):
+    with open(run_output_folder+"/stats.json", 'w') as outfile:
+        json.dump(dict(evoba_stats), outfile, cls=NpEncoder)
+        
+    np.save(run_output_folder+"/stats.npy", evoba_stats)
+    
+    fig = plt.figure(figsize=(20, 14))
+    plt.hist(evoba_stats["l0_dists_succ"])
+    plt.title("EvoBA L0 distances histogram", fontsize=26)
+    plt.xlabel("L0 distance", fontsize=24)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.ylabel("Count images", fontsize=24)
+    plt.savefig(run_output_folder+"/l0_hist.png")
+    
+    fig = plt.figure(figsize=(20, 14))
+    plt.hist(evoba_stats["queries_succ"])
+    plt.title("EvoBA queries histogram", fontsize=26)
+    plt.xlabel("Queries", fontsize=24)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.ylabel("Count images", fontsize=24)
+    plt.savefig(run_output_folder+"/queries_hist.png")
+    
