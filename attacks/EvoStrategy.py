@@ -149,7 +149,8 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
                     if self.verbose:
                         print("error displaying")
                         print(e)
-                print()
+                if self.verbose:
+                    print()
         if self.verbose:
             print("Final probability to be classified correctly:", 
                   self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0][self.label])
