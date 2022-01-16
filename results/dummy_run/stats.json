@@ -1,0 +1,1 @@
+{"count_succ": 10, "queries_succ": [91, 31, 151, 121, 61, 271, 301, 301, 301, 751], "l0_dists_succ": [9, 3, 15, 12, 6, 27, 30, 30, 30, 75], "indices_succ": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "count_fail": 0, "indices_fails": [], "queries_succ_mean": 238.0, "l0_dists_succ_mean": 23.7}
