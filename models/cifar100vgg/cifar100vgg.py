@@ -1,5 +1,3 @@
-
-from __future__ import print_function
 import tensorflow.keras
 from tensorflow.keras.datasets import cifar100
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -10,6 +8,9 @@ from tensorflow.keras import optimizers
 import numpy as np
 from tensorflow.keras import backend as K
 from tensorflow.keras import regularizers
+import tensorflow as tf
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class cifar100vgg:
     def __init__(self, train=True, weights_path=''):
@@ -17,7 +18,7 @@ class cifar100vgg:
         self.weight_decay = 0.0005
         self.x_shape = [32,32,3]
         self.weights_path = weights_path
-
+        
         self.model = self.build_model()
         if train:
             self.model = self.train(self.model)
