@@ -130,4 +130,11 @@ def save_evoba_artifacts(evoba_stats, run_output_folder):
     plt.yticks(fontsize=24)
     plt.ylabel("Count images", fontsize=24)
     plt.savefig(run_output_folder+"/queries_hist.png")
-    
+
+
+def save_original_perturbed_image_pairs(adv_evo_strategy):
+    # TODO: add implementation that saves pairs of original and
+    #  perturbed images, together with individual stats
+    #  Decide whether some sampling should happen here, or in
+    #  the caller - maybe in the caller is a better idea.
+    return "NOT IMPLEMENTED"

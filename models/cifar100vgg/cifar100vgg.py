@@ -13,7 +13,11 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class cifar100vgg:
-    def __init__(self, train=True, weights_path=''):
+    def __init__(
+        self, 
+        train=False, 
+        weights_path="/home/ailie/Repos/BBAttacks/models/cifar100vgg/cifar100vgg.h5"
+    ):
         self.num_classes = 100
         self.weight_decay = 0.0005
         self.x_shape = [32,32,3]
