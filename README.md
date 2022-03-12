@@ -8,6 +8,15 @@ Black-Box Adversarial Attacks for Image Classifiers
 **cifar_10_experiments.ipynb** and **imagenet_experiments.ipynb** were used in the **EvoBA: An Evolution Strategy as a Strong Baseline for
 Black-Box Adversarial Attacks** paper experiments
 - **utils** contains various helper functions
+- **run_evoba.py** is a simple script that runs EvoBA against custom models and tasks. Sample usage:
+
+```
+python run_evoba.py 
+    --model_path "models/cifar100vgg/cifar100vgg.py" 
+    --model_class_name "cifar100vgg" 
+    --task "cifar100" 
+    --sample_size 100
+```
 
 ## Important note about EvoBA
 As there are multiple experiments and attacks in this repo, we provide a pack with the minimal necessary scripts and notebooks to replicate the EvoBA results from 
