@@ -51,7 +51,8 @@ parser.add_argument(
 parser.add_argument(
     '--task', '--task_name',
     type=str,
-    help="Name of the model's classification task. For the moment, only cifar100. Will be cifar10/mnist/imagenet/custom, where custom allows for user's own input dataset and labels",
+    help="Name of the model's classification task. For the moment, only cifar100. \
+          Will be cifar10/mnist/imagenet/custom, where custom allows for user's own input dataset and labels",
     default="cifar100"
 )
 
@@ -125,6 +126,7 @@ task = args.task
 
 print(f"Task: {task}\n")
 
+# Task specific data loading and preprocessing
 if task == "cifar100":
     from tensorflow.keras.datasets import cifar100
     from tensorflow import keras
@@ -135,63 +137,65 @@ if task == "cifar100":
     x_test = x_test.astype('int')
     y_test = keras.utils.to_categorical(y_test, NUM_CLASSES)
     
-    print("Loaded test data")
-    
-    preds_test = model_instance.predict(x_test)
-    preds_test_labels = np.argmax(preds_test, axis=1)
-    true_test_labels = np.argmax(y_test, axis=1)
-    
-    acc_test = np.mean(true_test_labels == preds_test_labels)
-    print(f"Test accuracy: {acc_test}\n")
-    
-    print("Saving only the correctly classified images to be perturbed")
-    x_test_correct = x_test[preds_test_labels == true_test_labels]
-    y_test_correct = y_test[preds_test_labels == true_test_labels]
-          
-    print(f"Saved {len(x_test_correct)} samples out of {len(x_test)} samples")
-    
-    
-    # Select the sample to attack below
-    sample_size = args.ss
-    LEFT_IDX_ATTACK_IMAGES = 0
-    # If the specified sample size is <0, then use the entire test set for running the attack
-    if sample_size > 0:
-        RIGHT_IDX_ATTACK_IMAGES = sample_size
-    else:
-        RIGHT_IDX_ATTACK_IMAGES = len(x_test_correct)
-    SAMPLE_IMAGES = x_test_correct[LEFT_IDX_ATTACK_IMAGES: RIGHT_IDX_ATTACK_IMAGES]
-    SAMPLE_Y = y_test_correct[LEFT_IDX_ATTACK_IMAGES: RIGHT_IDX_ATTACK_IMAGES]
-    print("Selected data sample to attack\n")
-    
-    
-    print("STARTING THE ATTACK")
-    adv_evo_strategy = {}
-    VERBOSE = False
-    
-    for index in tqdm(range(len(SAMPLE_IMAGES))):
-        img = SAMPLE_IMAGES[index]
-        label = SAMPLE_Y[index]
-        
-        true_label = np.argmax(label)
-
-        adv_evo_strategy[index] = EvoStrategy.AdversarialPerturbationEvoStraegy(
-            model=model_instance,
-            img=img,
-            label=true_label,
-            generation_size=GENERATION_SIZE, 
-            one_step_perturbation_pixel_count=PIXEL_COUNT,
-            verbose=VERBOSE,
-            zero_one_scale=False
-        )
-
-        no_steps = adv_evo_strategy[index].run_adversarial_attack(steps=STEPS)
+    print("Loaded CIFAR100 test data")
 else:
     print(f"Task {task} not supported yet")
     sys.exit()
+
+
+# Evaluate model accuracy on sample set
+preds_test = model_instance.predict(x_test)
+preds_test_labels = np.argmax(preds_test, axis=1)
+true_test_labels = np.argmax(y_test, axis=1)
+
+acc_test = np.mean(true_test_labels == preds_test_labels)
+print(f"Test accuracy: {acc_test}\n")
+
+
+# We will only try to perturb the correctly classified images
+x_test_correct = x_test[preds_test_labels == true_test_labels]
+y_test_correct = y_test[preds_test_labels == true_test_labels]
+print(f"Will save for perturbation only the correctly \
+        classified images: {len(x_test_correct)} samples out of {len(x_test)} images")
+
+
+# Select the sample to attack below
+sample_size = args.ss
+LEFT_IDX_ATTACK_IMAGES = 0
+# If the specified sample size is <0, then use the entire test set for running the attack
+if sample_size > 0:
+    RIGHT_IDX_ATTACK_IMAGES = sample_size
+else:
+    RIGHT_IDX_ATTACK_IMAGES = len(x_test_correct)
+SAMPLE_IMAGES = x_test_correct[LEFT_IDX_ATTACK_IMAGES: RIGHT_IDX_ATTACK_IMAGES]
+SAMPLE_Y = y_test_correct[LEFT_IDX_ATTACK_IMAGES: RIGHT_IDX_ATTACK_IMAGES]
+print("Selected data sample to attack\n")
+
+
+print("STARTING THE ATTACK")
+adv_evo_strategy = {}
+VERBOSE = False
+
+for index in tqdm(range(len(SAMPLE_IMAGES))):
+    img = SAMPLE_IMAGES[index]
+    label = SAMPLE_Y[index]
+
+    true_label = np.argmax(label)
+
+    adv_evo_strategy[index] = EvoStrategy.AdversarialPerturbationEvoStraegy(
+        model=model_instance,
+        img=img,
+        label=true_label,
+        generation_size=GENERATION_SIZE,
+        one_step_perturbation_pixel_count=PIXEL_COUNT,
+        verbose=VERBOSE,
+        zero_one_scale=False
+    )
+
+    no_steps = adv_evo_strategy[index].run_adversarial_attack(steps=STEPS)
 
 evoba_stats = utils.get_evoba_stats(adv_evo_strategy)
 utils.print_evoba_stats(evoba_stats)
 
 utils.save_evoba_artifacts(evoba_stats, run_output_folder)
-
-print(f"Artifacts saved at path {run_output_folder}")
+print(f"EvoBA Artifacts saved at path {run_output_folder}")
