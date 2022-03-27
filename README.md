@@ -11,7 +11,7 @@ Black-Box Adversarial Attacks** paper experiments
 - **run_evoba.py** is a simple script that runs EvoBA against custom models and tasks. Sample usage:
 
 ```
-python run_evoba.py 
+python run_robustness_checks.py
     --model_path "models/cifar100vgg/cifar100vgg.py" 
     --model_class_name "cifar100vgg" 
     --task "cifar100" 
