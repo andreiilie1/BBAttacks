@@ -215,10 +215,7 @@ if RUN_L0_ATTACK:
 
     evoba_stats = utils.get_evoba_stats(adv_evo_strategy)
     utils.print_evoba_stats(evoba_stats)
-
     utils.save_evoba_artifacts(evoba_stats, run_output_folder)
-    print(f"EvoBA Artifacts saved at path {run_output_folder}")
-    print()
 
 
 if RUN_L2_ATTACK:
@@ -227,7 +224,7 @@ if RUN_L2_ATTACK:
     EPSILON = args.seps
 
     print(f"Will perform SimBA with")
-    print(f"- EPSILON={EPSILON}")
+    print(f"- EPSILON={EPSILON}\n")
 
     simba_wrapper = swl2.SimbaWrapper(
         model=model_instance,
@@ -236,27 +233,16 @@ if RUN_L2_ATTACK:
         epsilon=EPSILON,
         max_queries=4000,
         max_l2_distance=1000,
-        max_iterations = 2000,
+        max_iterations=1000,
         folder=run_output_folder,
         verbose=False,
         max_value=255.0
     )
 
     simba_wrapper.run_simba()
-    print(simba_wrapper.perturbed)
-    print(simba_wrapper.queries)
 
-    import math
+    simba_stats = utils.get_simba_stats(simba_wrapper)
+    utils.print_simba_stats(simba_stats)
+    utils.save_simba_artifacts(simba_stats, run_output_folder)
 
-    l2_dists_simba = []
-    for index_diff in tqdm(range(len(SAMPLE_IMAGES))):
-        diff = np.abs(simba_wrapper.X_modified[index_diff] - simba_wrapper.X[index_diff])
-        #     diff = np.reshape(diff, (32, 32, 3))
-        l2_dist = math.sqrt(np.sum(np.reshape(diff, (-1)) ** 2))
-        l2_dists_simba.append(l2_dist)
-    #     print("L2 distance:", math.sqrt(np.sum(np.reshape(diff, (-1))**2)))
-    #     plt.imshow(np.reshape(adv_evo_strategy[index_diff].get_best_candidate(), (28, 28)))
-    #     plt.show()
-    #     print("Prediction:", model.predict(np.array([adv_evo_strategy[index_diff].get_best_candidate()])))
-
-    print(l2_dists_simba)
+print(f"Artifacts saved at path {run_output_folder}")
