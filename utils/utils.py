@@ -52,11 +52,11 @@ def get_evoba_stats(adv_evo_strategy):
         else:
             count_fail +=1
             index_fail.append(i)
-        
+
     return {
         "count_succ": int(count_succ),
         "queries_succ": queries_succ,
-        "l0_dists_succ": l0_dists_succ, 
+        "l0_dists_succ": l0_dists_succ,
         "indices_succ": indices_succ,
         "count_fail": int(count_fail),
         "indices_fails": indices_fails,
@@ -108,10 +108,10 @@ class NpEncoder(json.JSONEncoder):
 
 
 def save_evoba_artifacts(evoba_stats, run_output_folder):
-    with open(run_output_folder+"/stats.json", 'w') as outfile:
+    with open(run_output_folder+"/evoba_l0_stats.json", 'w') as outfile:
         json.dump(dict(evoba_stats), outfile, cls=NpEncoder)
         
-    np.save(run_output_folder+"/stats.npy", evoba_stats)
+    np.save(run_output_folder+"/evoba_l0_stats.npy", evoba_stats)
     
     fig = plt.figure(figsize=(20, 14))
     plt.hist(evoba_stats["l0_dists_succ"])
@@ -120,7 +120,7 @@ def save_evoba_artifacts(evoba_stats, run_output_folder):
     plt.xticks(fontsize=24)
     plt.yticks(fontsize=24)
     plt.ylabel("Count images", fontsize=24)
-    plt.savefig(run_output_folder+"/l0_hist.png")
+    plt.savefig(run_output_folder+"/evoba_l0_hist.png")
     
     fig = plt.figure(figsize=(20, 14))
     plt.hist(evoba_stats["queries_succ"])
@@ -129,7 +129,7 @@ def save_evoba_artifacts(evoba_stats, run_output_folder):
     plt.xticks(fontsize=24)
     plt.yticks(fontsize=24)
     plt.ylabel("Count images", fontsize=24)
-    plt.savefig(run_output_folder+"/queries_hist.png")
+    plt.savefig(run_output_folder+"/evoba_l0_queries_hist.png")
 
 
 def save_original_perturbed_image_pairs(adv_evo_strategy):
@@ -138,3 +138,76 @@ def save_original_perturbed_image_pairs(adv_evo_strategy):
     #  Decide whether some sampling should happen here, or in
     #  the caller - maybe in the caller is a better idea.
     return "NOT IMPLEMENTED"
+
+
+def get_simba_stats(simba_wrapper):
+    count_succ = sum(simba_wrapper.perturbed)
+    cont_fail = len(simba_wrapper.perturbed) - count_succ
+
+    queries_succ = list(np.array(simba_wrapper.queries)[simba_wrapper.perturbed])
+    l2_dists_succ = list(np.array(simba_wrapper.l2_distances)[simba_wrapper.perturbed])
+
+    return {
+        "count_succ": int(count_succ),
+        "count_fail": int(cont_fail),
+        "queries_succ": queries_succ,
+        "l2_dists_succ": l2_dists_succ,
+        "queries_succ_mean": np.mean(queries_succ),
+        "l2_dists_succ_mean": np.mean(l2_dists_succ)
+    }
+
+
+def print_simba_stats(simba_stats):
+    SEP = "_" * 20
+    count_succ = simba_stats["count_succ"]
+    count_fail = simba_stats["count_fail"]
+    count_total = count_succ + count_fail
+
+    queries_succ_mean = simba_stats["queries_succ_mean"]
+    l2_dists_succ_mean = simba_stats["l2_dists_succ_mean"]
+
+    queries_succ = simba_stats["queries_succ"]
+    l2_dists_succ = simba_stats["l2_dists_succ"]
+
+    print()
+    print("SimBA STATS (L2 attack)")
+    print(SEP)
+
+    print(f"Perturbed successfully {count_succ}/{count_total} images")
+    print(f"Average query count: {queries_succ_mean}")
+    print(f"Average l2 distance: {l2_dists_succ_mean}")
+
+    print()
+    print(f"Median query count: {np.median(queries_succ)}")
+    print(f"Median l2 dist: {np.median(l2_dists_succ)}")
+
+    print()
+    print(f"Max query count: {max(queries_succ)}")
+    print(f"Max l2 dist: {max(l2_dists_succ)}")
+    print(SEP)
+    print()
+
+
+def save_simba_artifacts(simba_stats, run_output_folder):
+    with open(run_output_folder + "/simba_l2_stats.json", 'w') as outfile:
+        json.dump(dict(simba_stats), outfile, cls=NpEncoder)
+
+    np.save(run_output_folder + "/simba_l2_stats.npy", simba_stats)
+
+    fig = plt.figure(figsize=(20, 14))
+    plt.hist(simba_stats["l2_dists_succ"])
+    plt.title("SimBA L2 distances histogram", fontsize=26)
+    plt.xlabel("L2 distance", fontsize=24)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.ylabel("Count images", fontsize=24)
+    plt.savefig(run_output_folder + "/simba_l2_hist.png")
+
+    fig = plt.figure(figsize=(20, 14))
+    plt.hist(simba_stats["queries_succ"])
+    plt.title("SimBA queries histogram", fontsize=26)
+    plt.xlabel("Queries", fontsize=24)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.ylabel("Count images", fontsize=24)
+    plt.savefig(run_output_folder + "/simba_l2_queries_hist.png")
