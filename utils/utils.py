@@ -95,6 +95,33 @@ def print_evoba_stats(evoba_stats):
     print(SEP)
     print()
     
+
+def get_epsgreedy_stats(ega, unperturbed_images):
+    l0_dists_succ = []
+    queries_succ = []
+    indices_succ = []
+    indices_fails = []
+    sample_size = len(unperturbed_images)
+    for i in range(sample_size):
+        if ega[i].is_perturbed():
+            dist = (ega[i].img != unperturbed_images[i]).sum()
+            l0_dists_succ.append(dist)
+            queries_succ.append(ega[i].count_explorations)
+            indices_succ.append(i)
+        else:
+            indices_fails.append(i)
+
+    return {
+        "count_succ": len(queries_succ),
+        "queries_succ": queries_succ,
+        "l0_dists_succ": l0_dists_succ,
+        "indices_succ": indices_succ,
+        "count_fail": len(indices_fails),
+        "indices_fails": indices_fails,
+        "queries_succ_mean": np.mean(queries_succ),
+        "l0_dists_succ_mean": np.mean(l0_dists_succ)
+    }
+    
     
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
