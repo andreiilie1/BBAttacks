@@ -81,7 +81,8 @@ class EpsilonGreedyAttack:
 
     def run_attack(self):
         NUM_STEPS = 5000
-        for i in tqdm(range(NUM_STEPS)):
+        # for i in tqdm(range(NUM_STEPS)):
+        for i in range(NUM_STEPS):
             attack_group = self.select_group()
             attack_result = self.explore_attack_group(attack_group)
             potential_reward = attack_result["potential_reward"]
@@ -94,9 +95,9 @@ class EpsilonGreedyAttack:
             # print("PROB BEFORE:", attack_result["prob_before"])
             # print("PROB AFTER:", attack_result["prob_after"])
             if self.is_perturbed():
-                print("Image succesfully perturbed")
-                print("Correct label:", self.label)
-                print("Predicted label:", np.argmax(self.model_prediction))
+                # print("Image succesfully perturbed")
+                # print("Correct label:", self.label)
+                # print("Predicted label:", np.argmax(self.model_prediction))
                 break
             # print()
 
