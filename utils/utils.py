@@ -2,6 +2,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 from tqdm.notebook import tqdm
 import json
+import mlflow
+import os
 
 
 def cap(value, inf, sup):
@@ -39,12 +41,12 @@ def get_evoba_stats(adv_evo_strategy):
     indices_succ = []
 
     count_fail = 0
-    indices_fails = []
+    indices_fail = []
 
     for i in range(len(adv_evo_strategy)):
         img = adv_evo_strategy[i].img
 
-        if adv_evo_strategy[i].stop_criterion():
+        if adv_evo_strategy[i].is_perturbed():
             count_succ += 1
             queries_succ.append(adv_evo_strategy[i].queries)
             l0_dists_succ.append(np.sum(adv_evo_strategy[i].get_best_candidate() != img))
@@ -59,7 +61,7 @@ def get_evoba_stats(adv_evo_strategy):
         "l0_dists_succ": l0_dists_succ,
         "indices_succ": indices_succ,
         "count_fail": int(count_fail),
-        "indices_fails": indices_fails,
+        "indices_fail": indices_fail,
         "queries_succ_mean": np.mean(queries_succ),
         "l0_dists_succ_mean": np.mean(l0_dists_succ)
     }
@@ -100,7 +102,7 @@ def get_epsgreedy_stats(ega, unperturbed_images):
     l0_dists_succ = []
     queries_succ = []
     indices_succ = []
-    indices_fails = []
+    indices_fail = []
     sample_size = len(unperturbed_images)
     for i in range(sample_size):
         if ega[i].is_perturbed():
@@ -109,15 +111,15 @@ def get_epsgreedy_stats(ega, unperturbed_images):
             queries_succ.append(ega[i].count_explorations)
             indices_succ.append(i)
         else:
-            indices_fails.append(i)
+            indices_fail.append(i)
 
     return {
         "count_succ": len(queries_succ),
         "queries_succ": queries_succ,
         "l0_dists_succ": l0_dists_succ,
         "indices_succ": indices_succ,
-        "count_fail": len(indices_fails),
-        "indices_fails": indices_fails,
+        "count_fail": len(indices_fail),
+        "indices_fail": indices_fail,
         "queries_succ_mean": np.mean(queries_succ),
         "l0_dists_succ_mean": np.mean(l0_dists_succ)
     }
@@ -238,3 +240,85 @@ def save_simba_artifacts(simba_stats, run_output_folder):
     plt.yticks(fontsize=24)
     plt.ylabel("Count images", fontsize=24)
     plt.savefig(run_output_folder + "/simba_l2_queries_hist.png")
+
+
+def generate_mlflow_logs(ega, attack_type, unperturbed_images, sample_size, run_name, 
+                         experiment_name="/default", additional_params={}):
+    try:
+        mlflow.end_run()
+        print("Ended previous run")
+    except:
+        pass
+    
+    try:
+        print(f"Logging run {run_name} under experiment {experiment_name}")
+        mlflow.set_experiment(experiment_name)
+        mlflow.start_run(run_name=run_name)
+    except Exception as e:
+        print(e)
+        print("Cannot start a new mlflow run, aborting")
+        return "FAIL"
+    if attack_type == "eps_greedy":
+        metrics = get_epsgreedy_stats(ega, unperturbed_images)
+    elif attack_type == "evoba":
+        metrics = get_evoba_stats(ega)
+    else:
+        raise NotImplementedError(f"attack_type {attack_type} not supported")
+        
+    l0_dists = metrics["l0_dists_succ"]
+    queries_succ = metrics["queries_succ"]
+    samples_succ = metrics["indices_succ"]
+    samples_fail = metrics["indices_fail"]
+    
+    plt.title("L0's of successful perturbations")
+    plt.hist(l0_dists)
+    fname = "l0_dists.png"
+    plt.savefig(fname, bbox_inches="tight")
+    mlflow.log_artifact(fname)
+    plt.clf()
+    os.remove(fname)
+    
+    plt.title("Query counts of successful perturbations")
+    plt.hist(queries_succ)
+    fname = "queries_succ.png"
+    plt.savefig(fname, bbox_inches="tight")
+    mlflow.log_artifact(fname)
+    plt.clf()
+    os.remove(fname)
+    
+    mlflow.log_param("perturbed", len(l0_dists))
+    mlflow.log_param("images", len(ega))
+    mlflow.log_param("l0_dists_suc", l0_dists)
+    mlflow.log_param("queries_suc", queries_succ)
+    mlflow.log_param("samples_succ", samples_succ)
+    mlflow.log_param("samples_fail", samples_fail)
+    
+    mlflow.log_param("l0_dists_suc_mean", np.mean(l0_dists))
+    mlflow.log_param("queries_suc_mean", np.mean(queries_succ))
+    
+    for param in additional_params:
+        mlflow.log_param(param, additional_params[param])
+    
+    for i in range(sample_size):
+        if ega[i].is_perturbed():
+            fname = f"{i}_perturbed_succ.png"
+        else:
+            fname = f"{i}_perturbed_fail.png"
+        
+        if attack_type == "eps_greedy":
+            img = ega[i].img
+        elif attack_type == "evoba":
+            img = ega[i].get_best_candidate()
+        
+        plt.imsave(fname, img/255)
+        mlflow.log_artifact(fname)
+        os.remove(fname)
+
+        fname = f"{i}_original.png"
+        plt.imsave(fname, unperturbed_images[i]/255)
+        mlflow.log_artifact(fname)
+        os.remove(fname)
+
+    mlflow.end_run()
+    
+    return "SUCCESS"
