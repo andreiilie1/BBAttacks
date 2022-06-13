@@ -7,9 +7,9 @@ from tqdm.auto import tqdm
 
 class EpsilonGreedyAttackThreshold:
     def __init__(self, model, img, one_hot_label, pixel_groups, threshold, 
-                 decay_factor=0.9, increase_factor=1.05, epsilon=0.1, max_rounds_until_decay = 20, 
+                 decay_factor=0.9, increase_factor=1.05, epsilon=0.1, max_rounds_until_decay=20, 
                  max_rounds=5000, preprocess=lambda x: x, decay_historical_rewards_flag=False,
-                 decay_history_factor = 0.2):
+                 decay_history_factor=0.2, verbose=False):
         self.model = model
         self.preprocess = preprocess
 
@@ -44,6 +44,8 @@ class EpsilonGreedyAttackThreshold:
         
         self.decay_historical_rewards_flag = decay_historical_rewards_flag
         self.decay_history_factor = decay_history_factor
+        
+        self.verbose = verbose
         
     def select_group(self):
         if random.random() > self.epsilon:
@@ -99,7 +101,8 @@ class EpsilonGreedyAttackThreshold:
     def run_attack(self):
         NUM_STEPS = self.max_rounds
         threshold = self.threshold
-        for i in tqdm(range(NUM_STEPS)):
+        # for i in tqdm(range(NUM_STEPS)):
+        for i in range(NUM_STEPS):
             if self.consecutive_rounds_without_success > self.max_rounds_until_decay:
                 threshold *= self.decay_factor
                 self.consecutive_rounds_without_success = 0
@@ -125,9 +128,10 @@ class EpsilonGreedyAttackThreshold:
             self.correct_label_prob_history.append(self.model_prediction[self.label])
             
             if self.is_perturbed():
-                print("Image succesfully perturbed")
-                print("Correct label:", self.label)
-                print("Predicted label:", np.argmax(self.model_prediction))
+                if self.verbose:
+                    print("Image succesfully perturbed")
+                    print("Correct label:", self.label)
+                    print("Predicted label:", np.argmax(self.model_prediction))
                 break
             # print()
 
