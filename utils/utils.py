@@ -5,6 +5,13 @@ import json
 import mlflow
 import os
 
+from enum import Enum
+
+
+class AttackType(Enum):
+    EVOBA = 1
+    EPSGREEDY = 2
+
 
 def cap(value, inf, sup):
     if value <= inf:
@@ -241,15 +248,15 @@ def save_simba_artifacts(simba_stats, run_output_folder):
     plt.ylabel("Count images", fontsize=24)
     plt.savefig(run_output_folder + "/simba_l2_queries_hist.png")
 
-
-def generate_mlflow_logs(ega, attack_type, unperturbed_images, sample_size, run_name, 
-                         experiment_name="/default", additional_params={}):
+    
+def clear_mlflow():
     try:
         mlflow.end_run()
         print("Ended previous run")
     except:
         pass
     
+def start_mlflow(run_name, experiment_name):
     try:
         print(f"Logging run {run_name} under experiment {experiment_name}")
         mlflow.set_experiment(experiment_name)
@@ -258,10 +265,18 @@ def generate_mlflow_logs(ega, attack_type, unperturbed_images, sample_size, run_
         print(e)
         print("Cannot start a new mlflow run, aborting")
         return "FAIL"
-    if attack_type == "eps_greedy":
-        metrics = get_epsgreedy_stats(ega, unperturbed_images)
-    elif attack_type == "evoba":
-        metrics = get_evoba_stats(ega)
+    
+
+def generate_mlflow_logs(strategy_objects:list, attack_type:AttackType, unperturbed_images:list, run_name:str, 
+                         experiment_name="/default", additional_params={}):
+    clear_mlflow()
+    
+    start_mlflow(run_name, experiment_name)
+    
+    if attack_type == AttackType.EPSGREEDY:
+        metrics = get_epsgreedy_stats(strategy_objects, unperturbed_images)
+    elif attack_type == AttackType.EVOBA:
+        metrics = get_evoba_stats(strategy_objects)
     else:
         raise NotImplementedError(f"attack_type {attack_type} not supported")
         
@@ -285,30 +300,34 @@ def generate_mlflow_logs(ega, attack_type, unperturbed_images, sample_size, run_
     mlflow.log_artifact(fname)
     plt.clf()
     os.remove(fname)
+
+        
+    for param in additional_params:
+        mlflow.log_param(param, additional_params[param])
     
+    mlflow.log_metric("l0_dists_suc_mean", np.mean(l0_dists))
+    mlflow.log_metric("queries_suc_mean", np.mean(queries_succ))
+    mlflow.log_metric("succes_rate", len(l0_dists)/len(strategy_objects))
+        
     mlflow.log_param("perturbed", len(l0_dists))
-    mlflow.log_param("images", len(ega))
+    mlflow.log_param("images", len(strategy_objects))
+    
     mlflow.log_param("l0_dists_suc", l0_dists)
     mlflow.log_param("queries_suc", queries_succ)
     mlflow.log_param("samples_succ", samples_succ)
     mlflow.log_param("samples_fail", samples_fail)
     
-    mlflow.log_param("l0_dists_suc_mean", np.mean(l0_dists))
-    mlflow.log_param("queries_suc_mean", np.mean(queries_succ))
-    
-    for param in additional_params:
-        mlflow.log_param(param, additional_params[param])
-    
+    sample_size = len(unperturbed_images)
     for i in range(sample_size):
-        if ega[i].is_perturbed():
+        if strategy_objects[i].is_perturbed():
             fname = f"{i}_perturbed_succ.png"
         else:
             fname = f"{i}_perturbed_fail.png"
         
-        if attack_type == "eps_greedy":
-            img = ega[i].img
-        elif attack_type == "evoba":
-            img = ega[i].get_best_candidate()
+        if attack_type == AttackType.EPSGREEDY:
+            img = strategy_objects[i].img
+        elif attack_type == AttackType.EVOBA:
+            img = strategy_objects[i].get_best_candidate()
         
         plt.imsave(fname, img/255)
         mlflow.log_artifact(fname)
@@ -322,3 +341,20 @@ def generate_mlflow_logs(ega, attack_type, unperturbed_images, sample_size, run_
     mlflow.end_run()
     
     return "SUCCESS"
+
+
+def get_grid_pixel_groups(patch_size, image_size):
+    # Generate grid of areas (one area = one bandit)
+    assert image_size % patch_size == 0
+
+    pixel_groups = []
+    for i in range(int(image_size/patch_size)):
+        for j in range(int(image_size/patch_size)):
+            current_group = []
+            for pixel_i in range(patch_size):
+                for pixel_j in range(patch_size):
+                    pixel = (patch_size * i + pixel_i, patch_size * j + pixel_j)
+                    current_group.append(pixel)
+            pixel_groups.append(current_group)
+    
+    return pixel_groups
