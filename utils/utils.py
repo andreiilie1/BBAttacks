@@ -60,7 +60,7 @@ def get_evoba_stats(adv_evo_strategy):
             indices_succ.append(i)
         else:
             count_fail +=1
-            index_fail.append(i)
+            indices_fail.append(i)
 
     return {
         "count_succ": int(count_succ),
