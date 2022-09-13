@@ -126,7 +126,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
     def generate_next_generation(self):
         EvoStrategy.generate_next_generation(self)
     
-    def stop_criterion(self):
+    def is_perturbed(self):
         best_candidate = self.get_best_candidate()
         if np.argmax(
             self.model.predict(
@@ -137,11 +137,10 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
     def run_adversarial_attack(self, steps=100):
         i = 0
         
-        while i < steps and not self.stop_criterion():
+        while i < steps and not self.is_perturbed():
             self.generate_next_generation()
-#             print(i)
             i += 1
-        if self.stop_criterion() and i > 0:
+        if self.is_perturbed() and i > 0:
             if self.verbose:
                 print("After", i, "generations")
                 print("Label:", self.label, "; Prediction:", 

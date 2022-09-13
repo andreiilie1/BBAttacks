@@ -123,6 +123,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
     
     def run_adversarial_attack(self, steps=100):
         i = 0
+        
         while i < steps and not self.is_perturbed():
             self.generate_next_generation()
             i += 1
