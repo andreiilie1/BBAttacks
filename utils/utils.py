@@ -45,6 +45,7 @@ def get_evoba_stats(adv_evo_strategy):
     count_succ = 0
     queries_succ = []
     l0_dists_succ = []
+    l2_dists_succ = []
     indices_succ = []
 
     count_fail = 0
@@ -57,20 +58,35 @@ def get_evoba_stats(adv_evo_strategy):
             count_succ += 1
             queries_succ.append(adv_evo_strategy[i].queries)
             l0_dists_succ.append(np.sum(adv_evo_strategy[i].get_best_candidate() != img))
+            
+            curr_l2 = np.sqrt(np.sum((adv_evo_strategy[i].get_best_candidate() - img) ** 2))
+            l2_dists_succ.append(curr_l2)
+            
             indices_succ.append(i)
         else:
             count_fail +=1
             indices_fail.append(i)
-
+    
+    img_shape = np.shape(adv_evo_strategy[0].img)
+    count_px = img_shape[0] * img_shape[1] * img_shape[2]
+    
+    # Will report l2 distances on [0,1] pixel scale, as this is usual in the literature
+    # We assume that images with pixels outside [0,1] come from the [0,255] scale
+    # e.g ImageNet is on [0,255]. Note l0 doesn't need to be normalised, as it's a count
+    img_scale = 1 if adv_evo_strategy[0].zero_one_scale else 255 
+    
     return {
         "count_succ": int(count_succ),
         "queries_succ": queries_succ,
         "l0_dists_succ": l0_dists_succ,
+        "l2_dists_succ": l2_dists_succ,
         "indices_succ": indices_succ,
         "count_fail": int(count_fail),
         "indices_fail": indices_fail,
         "queries_succ_mean": np.mean(queries_succ),
-        "l0_dists_succ_mean": np.mean(l0_dists_succ)
+        "l0_dists_succ_mean": np.mean(l0_dists_succ),
+        "l2_dists_succ_mean": np.mean(l2_dists_succ) / img_scale,
+        "l2_dists_succ_mean_pp": np.mean(l2_dists_succ) / (count_px * img_scale)
     }
 
 
@@ -86,6 +102,8 @@ def print_evoba_stats(evoba_stats):
     queries_succ = evoba_stats["queries_succ"]
     l0_dists_succ = evoba_stats["l0_dists_succ"]
     
+    l2_dists_succ_mean_pp = evoba_stats["l2_dists_succ_mean_pp"]
+    
     print()
     print("EvoBA STATS (L0 attack)")
     print(SEP)
@@ -93,6 +111,7 @@ def print_evoba_stats(evoba_stats):
     print(f"Perturbed successfully {count_succ}/{count_total} images")
     print(f"Average query count: {queries_succ_mean}")
     print(f"Average l0 distance: {l0_dists_succ_mean}")
+    print(f"Average l2 distance per pixel: {l2_dists_succ_mean_pp}")
 
     print()
     print(f"Median query count: {np.median(queries_succ)}")
@@ -260,6 +279,7 @@ def start_mlflow(run_name, experiment_name):
     try:
         print(f"Logging run {run_name} under experiment {experiment_name}")
         mlflow.set_experiment(experiment_name)
+        mlflow.set_tracking_uri("/home/ailie/Repos/BBAttacks/mlruns/")
         mlflow.start_run(run_name=run_name)
     except Exception as e:
         print(e)
@@ -308,6 +328,9 @@ def generate_mlflow_logs(strategy_objects:list, attack_type:AttackType, unpertur
     mlflow.log_metric("l0_dists_suc_mean", np.mean(l0_dists))
     mlflow.log_metric("queries_suc_mean", np.mean(queries_succ))
     mlflow.log_metric("succes_rate", len(l0_dists)/len(strategy_objects))
+    
+    if attack_type == AttackType.EVOBA:
+        mlflow.log_metric("l2_dists_succ_mean_pp", metrics["l2_dists_succ_mean_pp"])
         
     mlflow.log_param("perturbed", len(l0_dists))
     mlflow.log_param("images", len(strategy_objects))
