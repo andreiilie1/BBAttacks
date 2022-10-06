@@ -20,6 +20,8 @@ from tqdm import tqdm
 #                                  this condition shouldn't hold, it's more like a safety net)
 #     - the image has sufferred modications of max_l0_distance pixels
 # It stops succesfully for an image as soon as it is not longer classified to have label y.
+
+# TODO: readd channels!!!
 class SimbaWrapper():
     def __init__(self, model, X, y, epsilon, max_queries, max_iterations=100, max_l0_distance=28, checkpoints=True, 
                  folder="saved_experiments_simba", verbose=False, reshape_flag=False, reshape=(28, 28), max_value=1,
@@ -73,7 +75,7 @@ class SimbaWrapper():
             else:
                 new_shape = np.shape(img)
             if verbose:
-                plt.imshow(np.reshape(img, new_shape))
+                plt.imshow(np.reshape(img, new_shape)/self.max_value)
             plt.show()
             label = np.argmax(self.y[index])
 
@@ -109,7 +111,7 @@ class SimbaWrapper():
                             new_shape = self.reshape
                         else:
                             new_shape = np.shape(img)
-                        plt.imshow(np.reshape(img, new_shape))
+                        plt.imshow(np.reshape(img, new_shape)/self.max_value)
                         plt.show()
                     perturbed = True
                     break
@@ -144,14 +146,14 @@ class SimbaWrapper():
                 res_pos_distribution = self.model.predict(np.array([self.preprocess(img_pos.copy())]))[0]
                 queries_count += 1
                 res_pos = res_pos_distribution[label]
-
+                
                 if(res_pos < curr_prob):
                     curr_probs_distribution = res_pos_distribution
                     curr_prob = res_pos
-                    img = img_pos
                     l0_distance += 1
                     l2_distance_sq += \
                         (img_pos[i][j][0] - img_clean[i][j][0])**2 - (img[i][j][0] - img_clean[i][j][0])**2
+                    img = img_pos
                 else:
                     img_neg = img.copy()
                     img_neg[i][j][0] = img_neg[i][j][0] - self.epsilon * self.max_value
@@ -165,10 +167,10 @@ class SimbaWrapper():
                     if(res_neg < curr_prob):
                         curr_probs_distribution = res_neg_distribution
                         curr_prob = res_neg
-                        img = img_neg
                         l0_distance += 1
                         l2_distance_sq += \
                             (img_neg[i][j][0] - img_clean[i][j][0])**2 - (img[i][j][0] - img_clean[i][j][0])**2
+                        img = img_neg            
             if verbose:
                 print(" Queries:", queries_count)
                 print("__________________")
