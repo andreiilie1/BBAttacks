@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import math
 
 import sys
 sys.path.append("../utils/")
@@ -47,6 +48,7 @@ class SimbaWrapper():
         self.queries = []
         self.perturbed = []
         self.l0_distances = []
+        self.l2_distances = []
 
     @staticmethod
     def stop_condition_success(prob_distribution, label):
@@ -62,7 +64,8 @@ class SimbaWrapper():
                 print()
                 print("Index:", index)
             queries_count = 0
-            img = self.X[index].copy()
+            img_clean = self.X[index].copy()
+            img = img_clean.copy()
             if verbose:
                 print("INITIAL IMAGE")
             if self.reshape_flag:
@@ -84,6 +87,7 @@ class SimbaWrapper():
             curr_prob = init_prob
             perturbed = False
             l0_distance = 0
+            l2_distance_sq = 0
 
             for step in range(self.max_iterations):
                 if(l0_distance > self.max_l0_distance):
@@ -146,6 +150,8 @@ class SimbaWrapper():
                     curr_prob = res_pos
                     img = img_pos
                     l0_distance += 1
+                    l2_distance_sq += \
+                        (img_pos[i][j][0] - img_clean[i][j][0])**2 - (img[i][j][0] - img_clean[i][j][0])**2
                 else:
                     img_neg = img.copy()
                     img_neg[i][j][0] = img_neg[i][j][0] - self.epsilon * self.max_value
@@ -161,6 +167,8 @@ class SimbaWrapper():
                         curr_prob = res_neg
                         img = img_neg
                         l0_distance += 1
+                        l2_distance_sq += \
+                            (img_neg[i][j][0] - img_clean[i][j][0])**2 - (img[i][j][0] - img_clean[i][j][0])**2
             if verbose:
                 print(" Queries:", queries_count)
                 print("__________________")
@@ -168,6 +176,7 @@ class SimbaWrapper():
             self.queries.append(queries_count)
             self.perturbed.append(perturbed)
             self.l0_distances.append(l0_distance)
+            self.l2_distances.append(math.sqrt(l2_distance_sq))
             self.X_modified.append(img)
             
             # if index % 20 == 0:
