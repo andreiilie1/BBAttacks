@@ -21,7 +21,8 @@ from tqdm import tqdm
 # It stops succesfully for an image as soon as it is not longer classified to have label y.
 class SimbaWrapper():
     def __init__(self, model, X, y, epsilon, max_queries, max_iterations=100, max_l0_distance=28, checkpoints=True, 
-                 folder="saved_experiments_simba", verbose=False, reshape_flag=False, reshape=(28, 28), max_value=1):
+                 folder="saved_experiments_simba", verbose=False, reshape_flag=False, reshape=(28, 28), max_value=1,
+                 preprocess=(lambda x: x)):
         self.model = model
         self.X = X
         self.y = y
@@ -35,6 +36,7 @@ class SimbaWrapper():
         self.reshape_flag = reshape_flag
         self.reshape = reshape
         self.max_value = max_value
+        self.preprocess = preprocess
         
         # At the end of a SimbaWrapper.run_simba run, self.queries[i] will contain the number of queries
         # to the model for image X[i] until the attack stopped (with or without success); 
@@ -75,7 +77,7 @@ class SimbaWrapper():
             shape = np.shape(img)
             selected = set()
 
-            init_probs_distribution = self.model.predict(np.array([img]))[0]
+            init_probs_distribution = self.model.predict(np.array([self.preprocess(img.copy())]))[0]
             queries_count += 1
             curr_probs_distribution = init_probs_distribution.copy()
             init_prob = init_probs_distribution[label]
@@ -135,7 +137,7 @@ class SimbaWrapper():
 #                 random_intensity = random.randint(0,255) / 255
 #                 img_pos[i][j][0] = random_intensity
 
-                res_pos_distribution = self.model.predict(np.array([img_pos]))[0]
+                res_pos_distribution = self.model.predict(np.array([self.preprocess(img_pos.copy())]))[0]
                 queries_count += 1
                 res_pos = res_pos_distribution[label]
 
@@ -150,7 +152,7 @@ class SimbaWrapper():
                     img_neg[i][j][0] = utils.cap(img_neg[i][j][0], 0, self.max_value)
 #                     img_neg[i][j][0] = random_intensity
 
-                    res_neg_distribution = self.model.predict(np.array([img_neg]))[0]
+                    res_neg_distribution = self.model.predict(np.array([self.preprocess(img_neg.copy())]))[0]
                     queries_count += 1
                     res_neg = res_neg_distribution[label]
 
@@ -168,12 +170,12 @@ class SimbaWrapper():
             self.l0_distances.append(l0_distance)
             self.X_modified.append(img)
             
-            if index % 20 == 0:
-                FILE_COUNT = index // 20
-                save_data = {
-                    "queries":self.queries,
-                    "perturbed":self.perturbed,
-                    "l0_distances":self.l0_distances
-                }
-                with open(self.folder + "/" + str(FILE_COUNT) + ".json", "w") as fp:
-                    json.dump(save_data, fp)
+            # if index % 20 == 0:
+            #     FILE_COUNT = index // 20
+            #     save_data = {
+            #         "queries":self.queries,
+            #         "perturbed":self.perturbed,
+            #         "l0_distances":self.l0_distances
+            #     }
+            #     with open(self.folder + "/" + str(FILE_COUNT) + ".json", "w") as fp:
+            #         json.dump(save_data, fp)
