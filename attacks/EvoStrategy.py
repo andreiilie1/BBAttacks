@@ -58,7 +58,8 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
         self.model = model
         self.img = img
         self.active_generation = [img]
-        self.fitness_scores = [1-self.model.predict(np.expand_dims(img, axis=0))[0][label]]
+        self.fitness_scores = [
+            1 - self.model.predict(np.expand_dims(img, axis=0), verbose=False)[0][label]]
         self.generation_size = generation_size
         self.label = label
         self.one_step_perturbation_pixel_count = one_step_perturbation_pixel_count
@@ -75,9 +76,9 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
             print("___________________")
             print("Correct label:", self.label)
             print("Initial class:", 
-                  np.argmax(self.model.predict(np.expand_dims(img, axis=0))[0]))
+                  np.argmax(self.model.predict(np.expand_dims(img, axis=0), verbose=False)[0]))
             print("Initial probability to be classified correctly:", 
-                  self.model.predict(np.expand_dims(img, axis=0))[0][label])
+                  self.model.predict(np.expand_dims(img, axis=0), verbose=False)[0][label])
     
     def get_next_generation(self):
         best_candidate = self.get_best_candidate()
@@ -90,7 +91,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
     def get_fitness_scores(self):
         # We definte fitness as probability to be anything else than the correct classs (self.label),
         # which is 1 - correct_class_probability. We do batch predictions for entire generations.
-        fitnesses = 1 - self.model.predict(np.array(self.active_generation))
+        fitnesses = 1 - self.model.predict(np.array(self.active_generation), verbose=False)
         fitnesses = np.array(list(map (lambda x: x[self.label], fitnesses)))
         return fitnesses
     
@@ -117,7 +118,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
     
     def is_perturbed(self):
         best_candidate = self.get_best_candidate()
-        if np.argmax(self.model.predict(np.expand_dims(best_candidate, axis=0))[0]) != self.label:
+        if np.argmax(self.model.predict(np.expand_dims(best_candidate, axis=0), verbose=False)[0]) != self.label:
             return True
         return False
     
@@ -130,7 +131,11 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
         if self.is_perturbed() and i > 0:
             if self.verbose:
                 print("After", i, "generations")
-                print("Label:", self.label, "; Prediction:", np.argmax(self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))))
+                print("Label:", self.label, "; Prediction:", 
+                      np.argmax(
+                          self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0), verbose=False)
+                      )
+                     )
                 print("Fitness:", max(self.fitness_scores))
                 try:              
                     plt.subplot(121)
@@ -154,9 +159,15 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
                     print()
         if self.verbose:
             print("Final probability to be classified correctly:", 
-                  self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0][self.label])
+                  self.model.predict(
+                      np.expand_dims(self.get_best_candidate(), axis=0),
+                      verbose=False
+                  )[0][self.label])
             print("Final probability to be classified as:",
-                  np.argmax(self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0]),
+                  np.argmax(self.model.predict(
+                      np.expand_dims(self.get_best_candidate(), axis=0),
+                      verbose=False
+                  )[0]),
                   " is ",
                   np.max(self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0]))
             print("Queries: ", self.queries)
