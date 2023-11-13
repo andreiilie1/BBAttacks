@@ -3,65 +3,51 @@ from utils import cap
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from EvoStrategy import EvoStrategy
+
+
 random.seed(40)
 
-# Base class for simple evolutionary strategy attacks
-class EvoStrategy(ABC):
-    def __init__(self):
-        self.generation_count = 0
-        self.active_generation = []
-        self.fitness_scores = []
-        self.queries = 0
-        pass
-    
-    def get_active_generation(self):
-        return self.active_generation
-    
-    def get_best_candidate(self):
-        fitnesses = self.fitness_scores
-        best_candidate_index = np.argmax(fitnesses)
-        return self.active_generation[best_candidate_index]
-    
-    @abstractmethod
-    def get_next_generation(self):
-        pass
-    
-    @abstractmethod
-    def get_fitness_scores(self):
-        pass
-    
-    def generate_next_generation(self, queries = -1):
-        new_generation = self.get_next_generation()
-        self.active_generation = new_generation
-        self.generation_count += 1
-        self.fitness_scores = self.get_fitness_scores()
-        if queries == -1:
-            self.queries += len(new_generation)
-        else:
-            self.queries += queries
 
-    
-# Implementation of the EvoStrategy base class, which will generate random 
-# individuals near a parent, and proceeds by only selecting the best (lowest correct probability) 
+# Implementation of the EvoStrategy base class, which will generate random
+# individuals near a parent, and proceeds by only selecting the best (lowest correct probability)
 # individual from the generation as the parent of the next one.
 # Main parameters to change are self.generation_size (how many individuals per each generation),
 # and, when calling the actual attack, the maximum number of rounds, passed as parameter 'steps' to
 # the method AdversarialPerturbationEvoStraegy.run_adversarial_attack(steps)
 
+
 # TODO: using (28x28) images below, customise it for any image sizes to be able to test on ImageNet
 class AdversarialPerturbationEvoStraegy(EvoStrategy):
     # We do not abstract model as an objective_function to be able
     # to use batch prediction easier.
-    def __init__(self, model, img, label, generation_size, one_step_perturbation_pixel_count, 
-                 verbose, pixel_probs, reshape_flag=False, reshape=(28,28), zero_one_scale=True, range_scale_int=False,
-                 min_rand=0, max_rand=255, preprocess = {}):
+    def __init__(
+        self,
+        model,
+        img,
+        label,
+        generation_size,
+        one_step_perturbation_pixel_count,
+        verbose,
+        pixel_probs,
+        reshape_flag=False,
+        reshape=(28, 28),
+        zero_one_scale=True,
+        range_scale_int=False,
+        min_rand=0,
+        max_rand=255,
+        preprocess={},
+    ):
         EvoStrategy.__init__(self)
         self.model = model
         self.img = img
         self.active_generation = [img]
         self.fitness_scores = [
-            1 - self.model.predict(self.get_preprocessed_batch(np.expand_dims(img, axis=0), preprocess))[0][label]
-        ] b
+            1
+            - self.model.predict(
+                self.get_preprocessed_batch(np.expand_dims(img, axis=0), preprocess)
+            )[0][label]
+        ]
         self.generation_size = generation_size
         self.label = label
         self.one_step_perturbation_pixel_count = one_step_perturbation_pixel_count
@@ -74,24 +60,29 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
         self.min_rand = min_rand
         self.max_rand = max_rand
         self.preprocess = preprocess
-        self.pixel_probs = np.reshape(pixel_probs, (1,-1))[0]
-        self.img_indices = list([(i,j) for i in range(np.shape(img)[0]) for j in range(np.shape(img)[1])])
+        self.pixel_probs = np.reshape(pixel_probs, (1, -1))[0]
+        self.img_indices = list(
+            [(i, j) for i in range(np.shape(img)[0]) for j in range(np.shape(img)[1])]
+        )
         if self.verbose:
-            img_aux = self.get_preprocessed_batch(np.expand_dims(img, axis=0), self.preprocess)
+            img_aux = self.get_preprocessed_batch(
+                np.expand_dims(img, axis=0), self.preprocess
+            )
             print()
             print("___________________")
             print("Correct label:", self.label)
-            print("Initial class:", 
-                  np.argmax(self.model.predict(img_aux)[0]))
-            print("Initial probability to be classified correctly:", 
-                  self.model.predict(img_aux)[0][label])
-            
+            print("Initial class:", np.argmax(self.model.predict(img_aux)[0]))
+            print(
+                "Initial probability to be classified correctly:",
+                self.model.predict(img_aux)[0][label],
+            )
+
     @staticmethod
     def get_preprocessed_batch(img_batch, preprocess):
         if preprocess == {}:
             return img_batch
         return preprocess(img_batch.copy())
-    
+
     def get_next_generation(self):
         best_candidate = self.get_best_candidate()
         new_generation = []
@@ -99,77 +90,95 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
             offspring = self.get_offspring(best_candidate)
             new_generation.append(offspring)
         return new_generation
-    
+
     def get_fitness_scores(self):
         # We definte fitness as probability to be anything else than the correct classs (self.label),
         # which is 1 - correct_class_probability. We do batch predictions for entire generations.
-        fitnesses = 1 - self.model.predict(self.get_preprocessed_batch(np.array(self.active_generation), self.preprocess))
-        fitnesses = np.array(list(map (lambda x: x[self.label], fitnesses)))
+        fitnesses = 1 - self.model.predict(
+            self.get_preprocessed_batch(
+                np.array(self.active_generation), self.preprocess
+            )
+        )
+        fitnesses = np.array(list(map(lambda x: x[self.label], fitnesses)))
         return fitnesses
-    
+
     def get_offspring(self, candidate):
         # Offspring are within one pixel distance from their parent, with gaussian noise being added.
         shape = np.shape(candidate)
-#         NOTE: need so many queries because we previously ony modified pixel by pixel! modify batches of pixels per new generation
+        #         NOTE: need so many queries because we previously ony modified pixel by pixel! modify batches of pixels per new generation
         candidate_copy = candidate.copy()
         for perturb_count in range(self.one_step_perturbation_pixel_count):
-            rand_choice = np.random.choice(range(len(self.img_indices)), p=self.pixel_probs)
-            i,j = self.img_indices[rand_choice]
+            rand_choice = np.random.choice(
+                range(len(self.img_indices)), p=self.pixel_probs
+            )
+            i, j = self.img_indices[rand_choice]
             for c in range(np.shape(self.img)[2]):
                 if self.zero_one_scale:
-                    value = random.randint(0,255)/255
+                    value = random.randint(0, 255) / 255
                 elif self.range_scale_int:
                     value = random.randint(self.min_rand, self.max_rand)
                 else:
-                    value = random.randint(0,255)
+                    value = random.randint(0, 255)
                 candidate_copy[i][j][c] = value
         return candidate_copy
-    
+
     def generate_next_generation(self):
         EvoStrategy.generate_next_generation(self)
-    
+
     def stop_criterion(self):
         best_candidate = self.get_best_candidate()
-        if np.argmax(
-            self.model.predict(
-                self.get_preprocessed_batch(np.expand_dims(best_candidate, axis=0), self.preprocess))[0]) != self.label:
+        if (
+            np.argmax(
+                self.model.predict(
+                    self.get_preprocessed_batch(
+                        np.expand_dims(best_candidate, axis=0), self.preprocess
+                    )
+                )[0]
+            )
+            != self.label
+        ):
             return True
         return False
-    
+
     def run_adversarial_attack(self, steps=100):
         i = 0
-        
+
         while i < steps and not self.stop_criterion():
             self.generate_next_generation()
-#             print(i)
+            #             print(i)
             i += 1
         if self.stop_criterion() and i > 0:
             if self.verbose:
                 print("After", i, "generations")
-                print("Label:", self.label, "; Prediction:", 
-                      np.argmax(
-                          self.model.predict(
-                              self.get_preprocessed_batch(
-                                  np.expand_dims(self.get_best_candidate(), axis=0), 
-                                  self.preprocess
-                              )
-                          )
-                      )
-                     )
+                print(
+                    "Label:",
+                    self.label,
+                    "; Prediction:",
+                    np.argmax(
+                        self.model.predict(
+                            self.get_preprocessed_batch(
+                                np.expand_dims(self.get_best_candidate(), axis=0),
+                                self.preprocess,
+                            )
+                        )
+                    ),
+                )
                 print("Fitness:", max(self.fitness_scores))
-                try:              
+                try:
                     plt.subplot(121)
                     if self.reshape_flag:
-                        plt.imshow(np.reshape(self.img, self.shape)/255)
+                        plt.imshow(np.reshape(self.img, self.shape) / 255)
                     else:
-                        plt.imshow(self.img/255)
-                        
+                        plt.imshow(self.img / 255)
+
                     plt.subplot(122)
                     if self.reshape_flag:
-                        plt.imshow(np.reshape(self.get_best_candidate(), self.shape)/255)
+                        plt.imshow(
+                            np.reshape(self.get_best_candidate(), self.shape) / 255
+                        )
                     else:
-                        plt.imshow(self.get_best_candidate()/255)
-                        
+                        plt.imshow(self.get_best_candidate() / 255)
+
                     plt.show()
                 except Exception as e:
                     if self.verbose:
@@ -177,19 +186,25 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
                         print(e)
                 print()
         if self.verbose:
-            aux_img = self.get_preprocessed_batch(np.expand_dims(self.get_best_candidate(), axis=0), self.preprocess)
-            print("Final probability to be classified correctly:", 
-                  self.model.predict(aux_img)[0][self.label])
-            print("Final probability to be classified as:",
-                  np.argmax(self.model.predict(aux_img)[0]),
-                  " is ",
-                  np.max(self.model.predict(aux_img)[0]))
+            aux_img = self.get_preprocessed_batch(
+                np.expand_dims(self.get_best_candidate(), axis=0), self.preprocess
+            )
+            print(
+                "Final probability to be classified correctly:",
+                self.model.predict(aux_img)[0][self.label],
+            )
+            print(
+                "Final probability to be classified as:",
+                np.argmax(self.model.predict(aux_img)[0]),
+                " is ",
+                np.max(self.model.predict(aux_img)[0]),
+            )
             print("Queries: ", self.queries)
             print("_________________________")
             print()
         return i
-    
-    
+
+
 # class AdversarialPerturbationBFStraegy(EvoStrategy):
 #     # We do not abstract model as an objective_function to be able
 #     # to use batch prediction easier.
@@ -209,11 +224,11 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
 #         self.verbose = verbose
 #         if verbose:
 #             print("Correct label:", self.label)
-#             print("Initial class:", 
+#             print("Initial class:",
 #                   np.argmax(self.model.predict(np.expand_dims(img, axis=0))[0]))
-#             print("Initial probability to be classified correctly:", 
+#             print("Initial probability to be classified correctly:",
 #                   self.model.predict(np.expand_dims(img, axis=0))[0][label])
-    
+
 #     def get_next_generation(self):
 #         best_candidate = self.get_best_candidate()
 #         new_generation = []
@@ -223,7 +238,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
 #             offspring = self.get_offspring(best_candidate)
 #             new_generation.append(offspring)
 #         return new_generation
-    
+
 #     def get_fitness_scores(self):
 #         # We definte fitness as probability to be anything else than the correct classs (self.label),
 #         # which is 1 - correct_class_probability. We do batch predictions for entire generations.
@@ -231,7 +246,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
 #         fitnesses = 1 - self.model.predict(new_generation_individuals)
 #         fitnesses = (self.fitness_scores + list(map (lambda x: x[self.label], fitnesses)))
 #         return fitnesses
-    
+
 #     def get_offspring(self, candidate):
 #         # Offspring are within one pixel distance from their parent, with gaussian noise being added.
 #         shape = np.shape(candidate)
@@ -244,16 +259,16 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
 #                 value = random.randint(0,255)/255
 #                 candidate_copy[i][j][c] = value
 #         return candidate_copy
-    
+
 #     def generate_next_generation(self):
 #         EvoStrategy.generate_next_generation(self, self.generation_size)
-    
+
 #     def stop_criterion(self):
 #         best_candidate = self.get_best_candidate()
 #         if np.argmax(self.model.predict(np.expand_dims(best_candidate, axis=0))[0]) != self.label:
 #             return True
 #         return False
-    
+
 #     def run_adversarial_attack(self, steps=100):
 #         i = 0
 #         while i < steps and not self.stop_criterion():
@@ -276,7 +291,7 @@ class AdversarialPerturbationEvoStraegy(EvoStrategy):
 #                 1+1
 #             print()
 #         if self.verbose:
-#             print("Final probability to be classified correctly:", 
+#             print("Final probability to be classified correctly:",
 #                   self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0][self.label])
 #             print("Final probability to be classified as:",
 #                   np.argmax(self.model.predict(np.expand_dims(self.get_best_candidate(), axis=0))[0]),
