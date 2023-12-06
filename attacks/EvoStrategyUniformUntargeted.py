@@ -18,6 +18,36 @@ from EvoStrategy import EvoStrategy
 class EvoStrategyUniformUntargeted(EvoStrategy):
     # We do not abstract model as an objective_function to be able
     # to use batch prediction easier.
+
+    """Black-box, untargeted adversarial attack against image classifiers.
+
+    This is provided as an implementation of the evolutionary strategy EvoStrategy abstract base class.
+    It encapsulates the target model and image and provides a method to run the adversarial attack.
+
+    Attributes:
+        model: Target model to be attacked. This has to expose a predict method that returns the
+            output probability distributions when provided a batch of images as input.
+        img: An array (HxWxC) representing the target image to be perturbed
+        label: An integer representing the correct class index of the image
+        generation_size: An integer parameter of the attack representing how many perturbations are attempted
+            per generation. The larger generation size leads to more exploration, more queries per generation,
+            and success achieved in fewer generations. Usual values are in the range 10..100.
+        one_step_perturbation_pixel_count: An integer parameter of the attack representing how many pixels to perturb
+            in one evolution step. Smaller values lead to finding a successful perturbation slower, but at smaller
+            perturbation norms. Larger values lead to finding a successful perturbation faster, but at larger
+            perturbation norms. This can be seen as an equivalent of learning rates when training deep models: one
+            trades off the accuracy in picking the right optimisation path with the speed of doing it.
+        verbose: A boolean flag which, when set to True, enables printing info on the attack results.
+        reshape_flag: A boolean flag which, when set to True, enables reshaping the target image img and the
+            final perturbed image produced by the adversarial attack only for visualisation purposes. This does not
+            change the way the attack works in any way, but only enables smoother visualisations when verbose is True.
+            Does nothing when verbose is False.
+        reshape: A tuple of two or three integers representing the shape to which images will be reshaped for
+            visualisation purposes. Only used when verbose and reshape_flag are both set to True. Can use a tuple of
+            two integers (H, W) in the case of single-channel images. Otherwise, use tuples of 3 integers (H, W, C).
+
+    """
+
     def __init__(
         self,
         model,
@@ -34,16 +64,21 @@ class EvoStrategyUniformUntargeted(EvoStrategy):
         max_rand=255,
     ):
         EvoStrategy.__init__(self)
+
+        # Each instance encapsulates the model and image to perturb
         self.model = model
         self.img = img
+
+        # Set active generation to the unperturbed image
         self.active_generation = [img]
+        self.queries += 1  # One query is used for calling predict on the unperturbed image
         self.fitness_scores = [
             1 - self.model.predict(np.expand_dims(img, axis=0), verbose=False)[0][label]
         ]
+
         self.generation_size = generation_size
         self.label = label
         self.one_step_perturbation_pixel_count = one_step_perturbation_pixel_count
-        self.queries += 1
         self.verbose = verbose
         self.reshape_flag = reshape_flag
         self.reshape = reshape
@@ -52,8 +87,8 @@ class EvoStrategyUniformUntargeted(EvoStrategy):
         self.min_rand = min_rand
         self.max_rand = max_rand
         if self.verbose:
-            print()
             print("___________________")
+            print(f"Instantianted new {type(self).__name__} attack")
             print("Correct label:", self.label)
             print(
                 "Initial class:",
@@ -77,18 +112,18 @@ class EvoStrategyUniformUntargeted(EvoStrategy):
         return new_generation
 
     def get_fitness_scores(self):
-        # We definte fitness as probability to be anything else than the correct classs (self.label),
+        # We define fitness as probability to be anything else than the correct class (self.label),
         # which is 1 - correct_class_probability. We do batch predictions for entire generations.
-        fitnesses = 1 - self.model.predict(
+        fitness_scores = 1 - self.model.predict(
             np.array(self.active_generation), verbose=False
         )
-        fitnesses = np.array(list(map(lambda x: x[self.label], fitnesses)))
-        return fitnesses
+        fitness_scores = np.array(list(map(lambda x: x[self.label], fitness_scores)))
+        queries = len(fitness_scores)
+        return fitness_scores, queries
 
     def get_offspring(self, candidate):
         # Offspring are within one pixel distance from their parent, with gaussian noise being added.
         shape = np.shape(candidate)
-        #         NOTE: need so many queries because we previously ony modified pixel by pixel! modify batches of pixels per new generation
         candidate_copy = candidate.copy()
         for perturb_count in range(self.one_step_perturbation_pixel_count):
             i = random.randint(0, shape[0] - 1)
@@ -120,14 +155,15 @@ class EvoStrategyUniformUntargeted(EvoStrategy):
         return False
 
     def run_adversarial_attack(self, steps=100):
-        i = 0
+        generation_idx = 0
 
-        while i < steps and not self.is_perturbed():
+        while generation_idx < steps and not self.is_perturbed():
             self.generate_next_generation()
-            i += 1
-        if self.is_perturbed() and i > 0:
+            generation_idx += 1
+
+        if self.is_perturbed() and generation_idx > 0:
             if self.verbose:
-                print("After", i, "generations")
+                print("After", generation_idx, "generations")
                 print(
                     "Label:",
                     self.label,
@@ -184,4 +220,4 @@ class EvoStrategyUniformUntargeted(EvoStrategy):
             print("Queries: ", self.queries)
             print("_________________________")
             print()
-        return i
+        return generation_idx
