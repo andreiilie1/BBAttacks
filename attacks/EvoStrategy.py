@@ -1,11 +1,5 @@
 from abc import ABC, abstractmethod
-from utils import cap
 import numpy as np
-import random
-import matplotlib.pyplot as plt
-
-
-random.seed(40)
 
 
 class EvoStrategy(ABC):
@@ -34,7 +28,7 @@ class EvoStrategy(ABC):
         self.queries = 0
         pass
 
-    def get_active_generation(self):
+    def _get_active_generation(self):
         """Retrieves the active generation."""
         return self.active_generation
 
@@ -45,20 +39,20 @@ class EvoStrategy(ABC):
         return self.active_generation[best_candidate_index]
 
     @abstractmethod
-    def get_next_generation(self):
+    def _get_next_generation(self):
         """Retrieves next generation starting from the active one."""
         pass
 
     @abstractmethod
-    def get_fitness_scores(self):
+    def _get_fitness_scores(self):
         """Retrieves fitness scores of each individual from the active generation."""
         pass
 
-    def generate_next_generation(self):
+    def _generate_next_generation(self):
         """Retrieves next generation starting from the active one and sets it to active."""
-        new_generation = self.get_next_generation()
+        new_generation = self._get_next_generation()
         self.active_generation = new_generation
         self.generation_count += 1
-        self.fitness_scores, queries = self.get_fitness_scores()
+        self.fitness_scores, queries = self._get_fitness_scores()
         self.queries += queries
 

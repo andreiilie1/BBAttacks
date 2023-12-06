@@ -71,9 +71,8 @@ def get_evoba_stats(adv_evo_strategy):
     count_px = img_shape[0] * img_shape[1] * img_shape[2]
     
     # Will report l2 distances on [0,1] pixel scale, as this is usual in the literature
-    # We assume that images with pixels outside [0,1] come from the [0,255] scale
-    # e.g ImageNet is on [0,255]. Note l0 doesn't need to be normalised, as it's a count
-    img_scale = 1 if adv_evo_strategy[0].zero_one_scale else 255 
+    # e.g. ImageNet is on [0,255]. Note l0 doesn't need to be normalised, as it's a count
+    img_scale = adv_evo_strategy[0].pixel_space_max
     
     return {
         "count_succ": int(count_succ),
