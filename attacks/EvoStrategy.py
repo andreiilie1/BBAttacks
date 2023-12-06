@@ -21,7 +21,7 @@ class EvoStrategy(ABC):
             most recent generation created by the evolutionary search strategy.
         fitness_scores: A list of floats representing the fitness scores of each
             individual in the current active generation.
-        queries: An integer represeting all individuals explored so far by the
+        queries: An integer representing all individuals explored so far by the
             evolutionary search strategy, i.e. the sum of all generation sizes so far.
 
     """
@@ -59,5 +59,6 @@ class EvoStrategy(ABC):
         new_generation = self.get_next_generation()
         self.active_generation = new_generation
         self.generation_count += 1
-        self.fitness_scores = self.get_fitness_scores()
+        self.fitness_scores, queries = self.get_fitness_scores()
         self.queries += queries
+
